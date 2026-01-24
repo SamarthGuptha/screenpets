@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Screen Pets",
+  "version": "1.0",
+  "description": "A jerk racoon that steals elements from your websites.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["style.css"],
+      "js": ["content.js"]
+    }
+  ]
+}
