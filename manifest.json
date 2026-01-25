@@ -1,16 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Screen Pets",
+  "name": "screenpets",
   "version": "1.0",
-  "description": "A jerk racoon that steals elements from your websites.",
+  "description": "A jerk raccoon that steals elements from your websites.",
   "permissions": [
     "activeTab",
     "scripting"
   ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Control Raccoon"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "css": ["style.css"],
+      "css": ["styles.css"],
       "js": ["content.js"]
     }
   ]
