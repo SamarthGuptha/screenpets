@@ -12,6 +12,14 @@ class Thief {
         this.animationId = null;
         this.createPet();
         this.startLoop();
+
+        if (typeof AuthorityModule !== 'undefined' && AuthorityModule.isSeriousSite()) {
+            this.becomeRespectful();
+
+        } else {
+            this.startLoop();
+        }
+
     }
 
     createPet() {
@@ -26,6 +34,18 @@ class Thief {
         this.y = window.innerHeight - 60;
         this.updatePosition();
         this.element.addEventListener('click', () => this.dropLoot());
+    }
+
+    becomeRespectful() {
+        this.state = 'RESPECTFUL';
+        //AuthorityModule.equipSuit(this.element);
+        this.x = window.innerWidth - 90;
+        this.y = window.innerHeight - 60;
+        this.updatePosition();
+        this.startLoop();
+        setTimeout(() => {
+            this.say("Good day, officer.", 3000);
+        }, 500);
     }
 
     say(text, duration = 2000) {
@@ -134,6 +154,19 @@ class Thief {
     }
 
     gameLoop() {
+        if (this.state === 'RESPECTFUL') {
+            this.x = window.innerWidth-90;
+            this.y = window.innerHeight-90;
+            this.updatePosition();
+
+            if (Math.random()<0.005) {
+                const phrases = ["I'm legal.", "Just browsing...", "Hehehehe", "I pay taxes on time."];
+                this.say(phrases[Math.floor(Math.random()*phrases.length)]);
+            }
+            this.animationId = requestAnimationFrame(() => this.gameLoop());
+            return;
+        }
+
         if (this.state === 'IDLE') {
             if (Math.random() < 0.01) this.findTarget();
         }

@@ -41,3 +41,18 @@
 .thief-bubble.visible {
     opacity: 1;
 }
+
+.thief-suit::after {
+    content: "👔";
+    position: absolute;
+    font-size: 20px;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 1000000;
+}
+
+.thief-suit {
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
