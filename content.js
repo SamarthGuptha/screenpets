@@ -11,16 +11,20 @@ class Thief {
         this.speed = 3;
         this.animationId = null;
         this.boredomLevel = 0;
+        this.mouseX = 0;
+        this.mouseY = 0;
+        document.addEventListener('mousemove', (e) => {
+            this.mouseX = e.clientX;
+            this.mouseY = e.clientY;
+        });
         this.createPet();
-        this.startLoop();
-
         if (typeof AuthorityModule !== 'undefined' && AuthorityModule.isSeriousSite()) {
             this.becomeRespectful();
-
+        } else if (typeof CringeModule !== 'undefined' && CringeModule.isCringeSite()) {
+            this.becomeCringeMirror();
         } else {
             this.startLoop();
         }
-
     }
 
     createPet() {
@@ -37,6 +41,14 @@ class Thief {
         this.element.addEventListener('click', () => this.dropLoot());
     }
 
+    say(text, duration = 2000) {
+        this.bubble.textContent = text;
+        this.bubble.classList.add('visible');
+        setTimeout(() => {
+            this.bubble.classList.remove('visible');
+        }, duration);
+    }
+
     becomeRespectful() {
         this.state = 'RESPECTFUL';
         //AuthorityModule.equipSuit(this.element);
@@ -49,12 +61,11 @@ class Thief {
         }, 500);
     }
 
-    say(text, duration = 2000) {
-        this.bubble.textContent = text;
-        this.bubble.classList.add('visible');
-        setTimeout(() => {
-            this.bubble.classList.remove('visible');
-        }, duration);
+    becomeCringeMirror() {
+        this.state = 'CRINGE';
+        CringeModule.equipClown(this.element);
+        this.startLoop();
+        this.say("Look, it's you.", 3000);
     }
 
     updatePosition() {
@@ -80,7 +91,6 @@ class Thief {
                 rect.width > 20 && rect.width < 300 &&
                 rect.height > 20 && rect.height < 300 &&
                 rect.top > 0 && rect.top < window.innerHeight &&
-                //basically dont steal itself and parent lmao
                 el.id !== 'the-thief-pet' &&
                 !el.contains(this.element)
             );
@@ -103,7 +113,6 @@ class Thief {
         const dx = targetX - this.x;
         const dy = targetY - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-
         if (distance < 5) return true;
         const vx = (dx / distance) * this.speed;
         const vy = (dy / distance) * this.speed;
@@ -142,7 +151,6 @@ class Thief {
             Object.assign(this.stolenItem.style, this.stolenOriginalStyles);
             this.stolenItem = null;
             this.targetElement = null;
-
             this.state = 'ESCAPING';
             this.burrowX = Math.random() > 0.5 ? -200 : window.innerWidth + 200;
             this.burrowY = Math.random() * window.innerHeight;
@@ -159,21 +167,34 @@ class Thief {
             this.x = window.innerWidth-90;
             this.y = window.innerHeight-90;
             this.updatePosition();
-
-            if (Math.random()<0.005) {
-                const phrases = ["I'm legal.", "Just browsing...", "Hehehehe", "I pay taxes on time."];
-                this.say(phrases[Math.floor(Math.random()*phrases.length)]);
+            if (Math.random() < 0.005) {
+                const phrases = ["I'm legal.", "Nice forms.", "Just browsing....", "I pay my taxes on time."];
+                this.say(phrases[Math.floor(Math.random() * phrases.length)]);
             }
+
+            this.animationId = requestAnimationFrame(() => this.gameLoop());
+            return;
+        }
+        if (this.state === 'CRINGE') {
+            const targetX = this.mouseX + 20;
+            const targetY = this.mouseY + 20;
+            this.speed = 6;
+            this.moveTowards(targetX, targetY);
+            if (Math.random() < 0.002) {
+                const insults = ["Synergy.", "Thought leader.", "Content.", "Viral.", "Good use of time."];
+                this.say(insults[Math.floor(Math.random() * insults.length)]);
+            }
+
             this.animationId = requestAnimationFrame(() => this.gameLoop());
             return;
         }
 
         if (this.state === 'IDLE') {
-            if (Math.random() < 0.01){
+            this.boredomLevel++;
+            if (Math.random() < 0.01) {
                 this.findTarget();
                 this.boredomLevel = 0;
             }
-
             if (this.boredomLevel > 600) {
                 if (typeof GraffitiModule !== 'undefined') {
                     const graffitiTarget = GraffitiModule.findTarget();
@@ -183,37 +204,33 @@ class Thief {
                         this.say("Boring...");
                         this.element.classList.add('thief-walking');
                     }
+                    this.boredomLevel = 0;
                 }
             }
-        }
-        else if (this.state === 'WANDERING') {
+        } else if (this.state === 'WANDERING') {
             if (this.moveTowards(this.targetX, this.targetY)) {
                 this.state = 'IDLE';
                 this.element.classList.remove('thief-walking');
             }
-        }
-        else if (this.state === 'ARTIST') {
+        } else if (this.state === 'ARTIST') {
             if (!this.targetElement || !document.body.contains(this.targetElement)) {
                 this.state = 'IDLE';
                 return;
             }
             const rect = this.targetElement.getBoundingClientRect();
-            if (this.moveTowards(rect.left + window.scrollX, rect.top+window.scrollY)) {
+            if (this.moveTowards(rect.left + window.scrollX, rect.top + window.scrollY)) {
                 GraffitiModule.applyGraffiti(this.targetElement);
-                const reactions = ['Much better.', 'Fixed it.', 'Pretty.', 'Hehe.', 'Art.'];
-                this.say(reactions[Math.floor(Math.random()*reactions.length)]);
+                const reactions = ["Much better.", "Fixed it.", "Hehe.", "Art."];
+                this.say(reactions[Math.floor(Math.random() * reactions.length)]);
                 this.state = 'IDLE';
                 this.targetElement = null;
                 this.element.classList.remove('thief-walking');
-
                 this.element.style.transform += ' translateY(-10px)';
                 setTimeout(() => {
                     this.element.style.transform = this.element.style.transform.replace(' translateY(-10px)', '');
-
                 }, 200);
             }
-        }
-        else if (this.state === 'HUNTING') {
+        } else if (this.state === 'HUNTING') {
             if (!this.targetElement || !document.body.contains(this.targetElement)) {
                 this.state = 'IDLE';
                 return;
@@ -222,19 +239,18 @@ class Thief {
             if (this.moveTowards(rect.left + window.scrollX, rect.top + window.scrollY)) {
                 this.steal();
             }
-        }
-
-        else if (this.state === 'ESCAPING') {
+        } else if (this.state === 'ESCAPING') {
             if (this.moveTowards(this.burrowX, this.burrowY)) {
                 if (this.stolenItem) {
                     this.stolenItem.style.display = 'none';
                     this.stolenItem = null;
                     console.log("Item successfully stolen.");
                 }
+
                 this.state = 'IDLE';
                 this.speed = 3;
                 this.element.classList.remove('thief-walking');
-        //basically a teleport to random edge lmao i love this racoon
+                //basically a teleport to random edge lmao i love this racoon
                 this.respawnTimer = setTimeout(() => {
                     this.x = Math.random() * (window.innerWidth - 50);
                     this.y = window.innerHeight - 60;
