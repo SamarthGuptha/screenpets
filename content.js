@@ -10,6 +10,7 @@ class Thief {
         this.state = 'IDLE';
         this.speed = 3;
         this.animationId = null;
+        this.boredomLevel = 0;
         this.createPet();
         this.startLoop();
 
@@ -168,12 +169,48 @@ class Thief {
         }
 
         if (this.state === 'IDLE') {
-            if (Math.random() < 0.01) this.findTarget();
+            if (Math.random() < 0.01){
+                this.findTarget();
+                this.boredomLevel = 0;
+            }
+
+            if (this.boredomLevel > 600) {
+                if (typeof GraffitiModule !== 'undefined') {
+                    const graffitiTarget = GraffitiModule.findTarget();
+                    if (graffitiTarget) {
+                        this.targetElement = graffitiTarget;
+                        this.state = 'ARTIST';
+                        this.say("Boring...");
+                        this.element.classList.add('thief-walking');
+                    }
+                }
+            }
         }
         else if (this.state === 'WANDERING') {
             if (this.moveTowards(this.targetX, this.targetY)) {
                 this.state = 'IDLE';
                 this.element.classList.remove('thief-walking');
+            }
+        }
+        else if (this.state === 'ARTIST') {
+            if (!this.targetElement || !document.body.contains(this.targetElement)) {
+                this.state = 'IDLE';
+                return;
+            }
+            const rect = this.targetElement.getBoundingClientRect();
+            if (this.moveTowards(rect.left + window.scrollX, rect.top+window.scrollY)) {
+                GraffitiModule.applyGraffiti(this.targetElement);
+                const reactions = ['Much better.', 'Fixed it.', 'Pretty.', 'Hehe.', 'Art.'];
+                this.say(reactions[Math.floor(Math.random()*reactions.length)]);
+                this.state = 'IDLE';
+                this.targetElement = null;
+                this.element.classList.remove('thief-walking');
+
+                this.element.style.transform += ' translateY(-10px)';
+                setTimeout(() => {
+                    this.element.style.transform = this.element.style.transform.replace(' translateY(-10px)', '');
+
+                }, 200);
             }
         }
         else if (this.state === 'HUNTING') {
