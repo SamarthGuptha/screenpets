@@ -18,6 +18,9 @@ class Thief {
             this.mouseY = e.clientY;
         });
         this.createPet();
+        if (typeof pawnshopModule !== 'undefined') {
+            pawnshopModule.init(this);
+        }
         if (typeof AuthorityModule !== 'undefined' && AuthorityModule.isSeriousSite()) {
             this.becomeRespectful();
         } else if (typeof CringeModule !== 'undefined' && CringeModule.isCringeSite()) {
@@ -38,7 +41,22 @@ class Thief {
         this.x = Math.random() * (window.innerWidth - 50);
         this.y = window.innerHeight - 60;
         this.updatePosition();
-        this.element.addEventListener('click', () => this.dropLoot());
+        this.element.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.handleClick();
+        });
+    }
+    handleClick() {
+        if (typeof pawnshopModule !== 'undefined' && pawnshopModule.hasStolenGoods()) {
+            pawnshopModule.openShop();
+        }
+        if (this.stolenItem) {
+            this.dropLoot();
+        }
+        this.say("Hisss!");
+        this.element.style.transform += ' scale(1.2)';
+        setTimeout(() => this.element.style.transform = this.element.style.transform.replace(' scale(1.2)', ''), 200);
+
     }
 
     say(text, duration = 2000) {
@@ -56,9 +74,7 @@ class Thief {
         this.y = window.innerHeight - 60;
         this.updatePosition();
         this.startLoop();
-        setTimeout(() => {
-            this.say("Good day, officer.", 3000);
-        }, 500);
+        setTimeout(() => {this.say("Good day, officer.", 3000);}, 500);
     }
 
     becomeCringeMirror() {
