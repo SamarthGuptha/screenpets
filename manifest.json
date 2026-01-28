@@ -15,7 +15,7 @@
     {
       "matches": ["<all_urls>"],
       "css": ["styles.css"],
-      "js": ["authority.js","graffiti.js","cringe.js","pawnshop.js","content.js"]
+      "js": ["authority.js","graffiti.js","cringe.js","pawnshop.js","phantom.js","content.js"]
     }
   ]
 }

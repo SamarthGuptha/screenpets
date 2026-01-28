@@ -4,30 +4,55 @@ class Thief {
         this.bubble = null;
         this.x = 0;
         this.y = 0;
+        this.state = 'IDLE';
         this.targetElement = null;
         this.stolenItem = null;
         this.stolenOriginalStyles = {};
-        this.state = 'IDLE';
         this.speed = 3;
-        this.animationId = null;
-        this.boredomLevel = 0;
-        this.mouseX = 0;
-        this.mouseY = 0;
-        document.addEventListener('mousemove', (e) => {
-            this.mouseX = e.clientX;
-            this.mouseY = e.clientY;
-        });
+        this.lastMouseX = window.innerWidth / 2;
+        this.lastMouseY = window.innerHeight / 2;
+        this.mouseVelocity = 0;
+        this.lastInputTime = Date.now();
+        this.lastScrollTime = Date.now();
+        this.isScrolling = false;
+        this.handleMouseMove = (e) => {
+            this.lastMouseX = e.clientX;
+            this.lastMouseY = e.clientY;
+        };
+        this.setupInputTracking();
         this.createPet();
         if (typeof pawnshopModule !== 'undefined') {
             pawnshopModule.init(this);
         }
-        if (typeof AuthorityModule !== 'undefined' && AuthorityModule.isSeriousSite()) {
-            this.becomeRespectful();
-        } else if (typeof CringeModule !== 'undefined' && CringeModule.isCringeSite()) {
+        if (typeof PhantomModule !== 'undefined') PhantomModule.init(this);
+        const isCringe = typeof CringeModule !== 'undefined' && CringeModule.isCringeSite();
+        const isSerious = typeof AuthorityModule !== 'undefined' && AuthorityModule.isSeriousSite();
+        if (isCringe) {
             this.becomeCringeMirror();
+        } else if (isSerious) {
+            this.becomeRespectful();
         } else {
             this.startLoop();
         }
+    }
+    setupInputTracking() {
+        document.addEventListener('mousemove', (e) => {
+            const dx = e.clientX - this.lastMouseX;
+            const dy = e.clientY - this.lastMouseY;
+            this.mouseVelocity = Math.sqrt(dx*dx + dy*dy);
+            if (this.handleMouseMove) this.handleMouseMove(e);
+            this.lastInputTime = Date.now();
+        });
+
+        document.addEventListener('scroll', () => {
+            this.lastScrollTime = Date.now();
+            this.lastInputTime = Date.now();
+            this.isScrolling = true;
+            clearTimeout(this.scrollTimeout);
+            this.scrollTimeout = setTimeout(() => {
+                this.isScrolling = false;
+            }, 200);
+        });
     }
 
     createPet() {
@@ -49,14 +74,15 @@ class Thief {
     handleClick() {
         if (typeof pawnshopModule !== 'undefined' && pawnshopModule.hasStolenGoods()) {
             pawnshopModule.openShop();
+            return;
         }
         if (this.stolenItem) {
             this.dropLoot();
+            return;
         }
         this.say("Hisss!");
         this.element.style.transform += ' scale(1.2)';
         setTimeout(() => this.element.style.transform = this.element.style.transform.replace(' scale(1.2)', ''), 200);
-
     }
 
     say(text, duration = 2000) {
@@ -67,6 +93,32 @@ class Thief {
         }, duration);
     }
 
+    scanForLoot() {
+        const candidates = document.querySelectorAll('img, button, a.btn, input');
+        const visibleTargets = [];
+
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        candidates.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            if (
+                rect.top >= 0 &&
+                rect.left >= 0 &&
+                rect.bottom <= viewportHeight &&
+                rect.right <= viewportWidth &&
+                rect.width > 20 && rect.height > 20 &&
+                el.id !== 'the-thief-pet' &&
+                !this.element.contains(el)
+            ) {
+                visibleTargets.push(el);
+            }
+        });
+
+        return visibleTargets.length > 0
+            ? visibleTargets[Math.floor(Math.random() * visibleTargets.length)]
+            : null;
+    }
     becomeRespectful() {
         this.state = 'RESPECTFUL';
         //AuthorityModule.equipSuit(this.element);
@@ -74,7 +126,7 @@ class Thief {
         this.y = window.innerHeight - 60;
         this.updatePosition();
         this.startLoop();
-        setTimeout(() => {this.say("Good day, officer.", 3000);}, 500);
+        setTimeout(() => this.say("Good day, officer.", 3000), 500);
     }
 
     becomeCringeMirror() {
@@ -84,6 +136,62 @@ class Thief {
         this.say("Look, it's you.", 3000);
     }
 
+    decideBehavior() {
+        const timeSinceInput = Date.now() - this.lastInputTime;
+        const timeSinceScroll = Date.now() - this.lastScrollTime;
+        if (timeSinceInput > 4000 && timeSinceScroll < 10000 && !this.isScrolling) {
+            if (typeof PhantomModule !== 'undefined') {
+                const readingTarget = PhantomModule.findReadingTarget();
+                if (readingTarget) {
+                    this.targetElement = readingTarget;
+                    this.state = 'PHANTOM';
+                    this.say("Whatcha reading?");
+                    this.element.classList.add('thief-walking');
+                    return;
+                }
+            }
+        }
+        if (this.mouseVelocity > 0 && this.mouseVelocity < 5) {
+            const hovered = document.elementFromPoint(this.lastMouseX, this.lastMouseY);
+            if (hovered && (hovered.tagName === 'BUTTON' || hovered.tagName === 'IMG' || hovered.tagName === 'A')) {
+                if (Math.random() < 0.05) {
+                    this.targetElement = hovered;
+                    this.state = 'HUNTING';
+                    this.say("I want that.");
+                    this.element.classList.add('thief-walking');
+                    return;
+                }
+            }
+        }
+        if (Math.random() < 0.004) {
+            const loot = this.scanForLoot();
+            if (loot) {
+                this.targetElement = loot;
+                this.state = 'HUNTING';
+                this.say("Mine.");
+                this.element.classList.add('thief-walking');
+                return;
+            }
+        }
+        if (timeSinceInput > 10000 && Math.random() < 0.01) {
+            if (typeof GraffitiModule !== 'undefined') {
+                const target = GraffitiModule.findTarget();
+                if (target) {
+                    this.targetElement = target;
+                    this.state = 'ARTIST';
+                    this.say("So boring...");
+                    this.element.classList.add('thief-walking');
+                    return;
+                }
+            }
+        }
+        if (Math.random() < 0.02) {
+            this.targetX = Math.random() * (window.innerWidth - 50);
+            this.targetY = (window.innerHeight / 2) + (Math.random() * (window.innerHeight / 2) - 60);
+            this.state = 'WANDERING';
+            this.element.classList.add('thief-walking');
+        }
+    }
     updatePosition() {
         this.element.style.left = `${this.x}px`;
         this.element.style.top = `${this.y}px`;
@@ -99,32 +207,6 @@ class Thief {
         }
     }
 
-    findTarget() {
-        const candidates = document.querySelectorAll('img, button, input, a.btn, h2, p');
-        const validTargets = Array.from(candidates).filter(el => {
-            const rect = el.getBoundingClientRect();
-            return (
-                rect.width > 20 && rect.width < 300 &&
-                rect.height > 20 && rect.height < 300 &&
-                rect.top > 0 && rect.top < window.innerHeight &&
-                el.id !== 'the-thief-pet' &&
-                !el.contains(this.element)
-            );
-        });
-
-        if (validTargets.length > 0) {
-            this.targetElement = validTargets[Math.floor(Math.random() * validTargets.length)];
-            this.state = 'HUNTING';
-            this.say("Ooh shiny...");
-            this.element.classList.add('thief-walking');
-        } else {
-            this.targetX = Math.random() * window.innerWidth;
-            this.targetY = window.innerHeight - 60;
-            this.state = 'WANDERING';
-            this.element.classList.add('thief-walking');
-        }
-    }
-
     moveTowards(targetX, targetY) {
         const dx = targetX - this.x;
         const dy = targetY - this.y;
@@ -136,14 +218,11 @@ class Thief {
         this.y += vy;
         if (vx > 0) this.element.style.transform = 'scaleX(-1)';
         else this.element.style.transform = 'scaleX(1)';
-
         this.updatePosition();
         return false;
     }
-
     steal() {
         if (!this.targetElement) return;
-
         this.stolenItem = this.targetElement;
         this.stolenOriginalStyles = {   //save original to restore later
             position: this.stolenItem.style.position,
@@ -171,80 +250,57 @@ class Thief {
             this.burrowX = Math.random() > 0.5 ? -200 : window.innerWidth + 200;
             this.burrowY = Math.random() * window.innerHeight;
             this.speed = 10;
-        } else {
-            this.say("Hissss!");
-            this.element.style.transform += ' scale(1.2)';
-            setTimeout(() => this.element.style.transform = this.element.style.transform.replace(' scale(1.2)', ''), 200);
         }
     }
-
     gameLoop() {
         if (this.state === 'RESPECTFUL') {
             this.x = window.innerWidth-90;
             this.y = window.innerHeight-90;
             this.updatePosition();
-            if (Math.random() < 0.005) {
-                const phrases = ["I'm legal.", "Nice forms.", "Just browsing....", "I pay my taxes on time."];
-                this.say(phrases[Math.floor(Math.random() * phrases.length)]);
-            }
-
             this.animationId = requestAnimationFrame(() => this.gameLoop());
             return;
         }
         if (this.state === 'CRINGE') {
-            const targetX = this.mouseX + 20;
-            const targetY = this.mouseY + 20;
+            const targetX = this.lastMouseX + 20;
+            const targetY = this.lastMouseY + 20;
             this.speed = 6;
             this.moveTowards(targetX, targetY);
-            if (Math.random() < 0.002) {
-                const insults = ["Synergy.", "Thought leader.", "Content.", "Viral.", "Good use of time."];
-                this.say(insults[Math.floor(Math.random() * insults.length)]);
-            }
-
             this.animationId = requestAnimationFrame(() => this.gameLoop());
             return;
         }
 
         if (this.state === 'IDLE') {
-            this.boredomLevel++;
-            if (Math.random() < 0.01) {
-                this.findTarget();
-                this.boredomLevel = 0;
-            }
-            if (this.boredomLevel > 600) {
-                if (typeof GraffitiModule !== 'undefined') {
-                    const graffitiTarget = GraffitiModule.findTarget();
-                    if (graffitiTarget) {
-                        this.targetElement = graffitiTarget;
-                        this.state = 'ARTIST';
-                        this.say("Boring...");
-                        this.element.classList.add('thief-walking');
-                    }
-                    this.boredomLevel = 0;
-                }
-            }
-        } else if (this.state === 'WANDERING') {
+            this.decideBehavior();
+        }
+
+        else if (this.state === 'WANDERING') {
             if (this.moveTowards(this.targetX, this.targetY)) {
                 this.state = 'IDLE';
                 this.element.classList.remove('thief-walking');
             }
-        } else if (this.state === 'ARTIST') {
-            if (!this.targetElement || !document.body.contains(this.targetElement)) {
+        }
+        else if (this.state === 'PHANTOM') {
+            if (!this.targetElement) { this.state = 'IDLE'; return; }
+            const rect = this.targetElement.getBoundingClientRect();
+            const destX = rect.left - 60 + window.scrollX;
+            const destY = rect.top + window.scrollY;
+
+            if (this.moveTowards(destX, destY)) {
+                PhantomModule.triggerSelection(this.targetElement);
                 this.state = 'IDLE';
-                return;
+                this.element.classList.remove('thief-walking');
             }
+        }
+        else if (this.state === 'ARTIST') {
+            if (!this.targetElement) { this.state = 'IDLE'; return; }
             const rect = this.targetElement.getBoundingClientRect();
             if (this.moveTowards(rect.left + window.scrollX, rect.top + window.scrollY)) {
                 GraffitiModule.applyGraffiti(this.targetElement);
-                const reactions = ["Much better.", "Fixed it.", "Hehe.", "Art."];
-                this.say(reactions[Math.floor(Math.random() * reactions.length)]);
+                this.say("Art.");
                 this.state = 'IDLE';
-                this.targetElement = null;
                 this.element.classList.remove('thief-walking');
                 this.element.style.transform += ' translateY(-10px)';
-                setTimeout(() => {
-                    this.element.style.transform = this.element.style.transform.replace(' translateY(-10px)', '');
-                }, 200);
+                setTimeout(() => this.element.style.transform = this.element.style.transform.replace(' translateY(-10px)', ''), 200);
             }
         } else if (this.state === 'HUNTING') {
             if (!this.targetElement || !document.body.contains(this.targetElement)) {
@@ -260,13 +316,10 @@ class Thief {
                 if (this.stolenItem) {
                     this.stolenItem.style.display = 'none';
                     this.stolenItem = null;
-                    console.log("Item successfully stolen.");
                 }
-
                 this.state = 'IDLE';
                 this.speed = 3;
                 this.element.classList.remove('thief-walking');
-                //basically a teleport to random edge lmao i love this racoon
                 this.respawnTimer = setTimeout(() => {
                     this.x = Math.random() * (window.innerWidth - 50);
                     this.y = window.innerHeight - 60;
@@ -290,14 +343,9 @@ class Thief {
 let currentThief = null;
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "spawn") {
-        if (!currentThief) {
-            currentThief = new Thief();
-        }
+        if (!currentThief) currentThief = new Thief();
     } else if (request.action === "kill") {
-        if (currentThief) {
-            currentThief.destroy();
-            currentThief = null;
-        }
+        if (currentThief) { currentThief.destroy(); currentThief = null; }
     }
 });
 setTimeout(() => {
