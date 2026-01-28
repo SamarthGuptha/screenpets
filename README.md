@@ -39,3 +39,13 @@ _Behavior_:He stands respectfully in the corner and refuses to steal anything. H
 
 _Trigger_: Visit a social media website.
 _Behavior_: He puts on a clownemoji and relentlessly follows your mouse cursor, mocking you with phrases like "Synergy" or "Viral."
+
+# _HOW TO REPRODUCE_  
+
+Create a Folder: Create a new folder on your computer.  
+Save Files: Save the files into the folder  
+Load into chrome:- Open chrome and go to chrome://extensions.  
+                    Toggle Developer Mode  
+                    Click load unpacked  
+                    select this folder.
+                    
